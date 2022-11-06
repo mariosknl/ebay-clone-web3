@@ -20,7 +20,7 @@ const Home = () => {
 		<div className="">
 			<Header />
 
-			<main className="max-w-6xl mx-auto px-2 px-6">
+			<main className="max-w-6xl mx-auto py-2 px-6">
 				{loadingListings ? (
 					<p className="text-center animate-pulse text-blue-500">
 						Loading listings...
