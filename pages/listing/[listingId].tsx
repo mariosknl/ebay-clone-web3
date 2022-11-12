@@ -1,14 +1,29 @@
 import { UserCircleIcon } from "@heroicons/react/24/solid";
-import { MediaRenderer, useContract, useListing } from "@thirdweb-dev/react";
+import {
+	MediaRenderer,
+	useContract,
+	useListing,
+	useNetwork,
+	useNetworkMismatch,
+	useMakeBid,
+	useOffers,
+	useMakeOffer,
+	useBuyNow,
+	useAddress,
+} from "@thirdweb-dev/react";
 import { ListingType } from "@thirdweb-dev/sdk";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import Header from "../../components/Header";
 import Countdown from "react-countdown";
+import network from "../../utils/network";
 
 function ListingPage() {
 	const router = useRouter();
 	const { listingId } = router.query as { listingId: string };
+	const [bidAmount, setBidAmount] = useState("");
+	const [, switchNetwork] = useNetwork();
+	const networkMismatch = useNetworkMismatch();
 	const [minimumNextBid, setMinimumNextBid] = useState<{
 		displayValue: string;
 		symbol: string;
@@ -18,6 +33,8 @@ function ListingPage() {
 		process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT,
 		"marketplace"
 	);
+
+	const { mutate: buyNow } = useBuyNow(contract);
 
 	const { data: listing, isLoading } = useListing(contract, listingId);
 
@@ -40,6 +57,53 @@ function ListingPage() {
 			displayValue: displayValue,
 			symbol: symbol,
 		});
+	};
+
+	const buyNft = async () => {
+		if (networkMismatch) {
+			switchNetwork && switchNetwork(network);
+			return;
+		}
+
+		if (!listing || !contract || !listingId) return;
+
+		await buyNow(
+			{
+				id: listingId,
+				buyAmount: 1,
+				type: listing.type,
+			},
+			{
+				onSuccess: (data, variables, context) => {
+					alert("NFT bought successfully");
+					console.log("SUCCESS", data, variables, context);
+					router.replace("/");
+				},
+				onError: (error, variables, context) => {
+					alert("Error buying NFT");
+					console.log("ERROR", error, variables, context);
+				},
+			}
+		);
+	};
+
+	const createBidOrOffer = async () => {
+		try {
+			if (networkMismatch) {
+				switchNetwork && switchNetwork(network);
+				return;
+			}
+
+			// Direct Listing
+			if (listing?.type === ListingType.Direct) {
+			}
+
+			// Auction Listing
+			if (listing?.type === ListingType.Auction) {
+			}
+		} catch (error) {
+			console.error(error);
+		}
 	};
 
 	if (isLoading) {
@@ -105,7 +169,10 @@ function ListingPage() {
 							{listing.buyoutCurrencyValuePerToken.symbol}
 						</p>
 
-						<button className="col-start-2 mt-2 bg-blue-600 font-bold text-white rounded-full w-44 py-4 px-10">
+						<button
+							onClick={buyNft}
+							className="col-start-2 mt-2 bg-blue-600 font-bold text-white rounded-full w-44 py-4 px-10"
+						>
 							Buy Now
 						</button>
 					</div>
@@ -140,8 +207,12 @@ function ListingPage() {
 							className="border p-2 rounded-lg mr-5"
 							type="text"
 							placeholder={formatPlaceholder()}
+							onChange={(e) => setBidAmount(e.target.value)}
 						/>
-						<button className="bg-red-600 font-bold text-white rounded-full w-44 py-5 px-10">
+						<button
+							onClick={createBidOrOffer}
+							className="bg-red-600 font-bold text-white rounded-full w-44 py-5 px-10"
+						>
 							{listing.type === ListingType.Direct ? "Offer" : "Bid"}
 						</button>
 					</div>
