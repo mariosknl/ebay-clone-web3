@@ -2,12 +2,17 @@ import { UserCircleIcon } from "@heroicons/react/24/solid";
 import { MediaRenderer, useContract, useListing } from "@thirdweb-dev/react";
 import { ListingType } from "@thirdweb-dev/sdk";
 import { useRouter } from "next/router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Header from "../../components/Header";
+import Countdown from "react-countdown";
 
 function ListingPage() {
 	const router = useRouter();
 	const { listingId } = router.query as { listingId: string };
+	const [minimumNextBid, setMinimumNextBid] = useState<{
+		displayValue: string;
+		symbol: string;
+	}>();
 
 	const { contract } = useContract(
 		process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT,
@@ -15,6 +20,27 @@ function ListingPage() {
 	);
 
 	const { data: listing, isLoading } = useListing(contract, listingId);
+
+	useEffect(() => {
+		if (!listingId || !contract || !listing) return;
+
+		if (listing.type === ListingType.Auction) {
+			fetchMinNextBid();
+		}
+	}, [listingId, listing, contract]);
+
+	const fetchMinNextBid = async () => {
+		if (!listing || !contract) return;
+
+		const { displayValue, symbol } = await contract.auction.getMinimumNextBid(
+			listingId
+		);
+
+		setMinimumNextBid({
+			displayValue: displayValue,
+			symbol: symbol,
+		});
+	};
 
 	if (isLoading) {
 		return (
@@ -39,7 +65,9 @@ function ListingPage() {
 		}
 
 		if (listing.type === ListingType.Auction) {
-			return "Enter Bid Amount";
+			return Number(minimumNextBid?.displayValue) === 0
+				? "Enter Bid Amount"
+				: `${minimumNextBid?.displayValue} ${minimumNextBid?.symbol} or more`;
 		}
 	};
 
@@ -94,6 +122,19 @@ function ListingPage() {
 						</p>
 
 						{/* Remaining time on auction goes here. */}
+						{listing.type === ListingType.Auction && (
+							<>
+								<p>Current Minimum Bid:</p>
+								<p className="font-bold">
+									{minimumNextBid?.displayValue} {minimumNextBid?.symbol}
+								</p>
+
+								<p>Time Remaining:</p>
+								<Countdown
+									date={Number(listing.endTimeInEpochSeconds.toString()) * 1000}
+								/>
+							</>
+						)}
 
 						<input
 							className="border p-2 rounded-lg mr-5"
